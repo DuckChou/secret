@@ -5,8 +5,11 @@ const express = require("express");
 const bodyParser = require("body-parser");
 const ejs = require("ejs");
 const mongoose = require('mongoose');
-const md5 = require('md5')
+// const md5 = require('md5')
 // const encrypt = require("mongoose-encryption");
+
+const bcrypt = require("bcrypt");
+const saltRounds = 10;
 
 const app = express();
 // console.log(process.env.SECRET);
@@ -42,10 +45,26 @@ app.get("/login", function (req, res) {
 })
 
 app.post("/login", function (req, res) {
-  User.findOne({ $and: [{ email: req.body.username }, { password: md5(req.body.password) }] }, function (err, foundUser) {
-    // console.log(foundUser);
-    if (!err && foundUser) {
-      res.render("secrets")
+
+  const email = req.body.username;
+  const password = req.body.password;
+  // User.findOne({ $and: [{ email: req.body.username }, { password: req.body.password }] }, function (err, foundUser) {
+  //   // console.log(foundUser);
+  //   if (!err && foundUser) {
+  //     res.render("secrets")
+  //   }
+  // })
+
+  User.findOne({email:email},function(err,foundUser){
+    if(!err){
+      bcrypt.compare(password, foundUser.password).then(function(result) {
+        // result == true
+        if(result === true){
+          res.render("secrets")
+        }
+    });
+    }else{
+      res.send(err);
     }
   })
 })
@@ -56,21 +75,28 @@ app.get("/register", function (req, res) {
 
 app.post("/register", function (req, res) {
   // console.log(req.body);
+
+
   const email = req.body.username;
-  const password = md5(req.body.password);
+  const password = req.body.password;
 
-  const newUser = new User({
-    email: email,
-    password: password
-  })
+  bcrypt.hash(password, saltRounds, function (err, hash) {
+    // Store hash in your password DB.
+    const newUser = new User({
+      email: email,
+      password: hash
+    })
+  
+    newUser.save(function (err) {
+      if (!err) {
+        res.render("secrets");
+      } else {
+        console.log(err);
+      }
+    })
+  });
 
-  newUser.save(function (err) {
-    if (!err) {
-      res.render("secrets");
-    } else {
-      console.log(err);
-    }
-  })
+  
 })
 
 
